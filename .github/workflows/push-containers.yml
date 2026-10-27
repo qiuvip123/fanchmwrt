@@ -1,28 +1,8 @@
-name: Build and Push prebuilt tools container
-
+name: disabled-in-a31-mesh-fork
 on:
-  push:
-    paths:
-      - 'include/version.mk'
-      - 'include/cmake.mk'
-      - 'tools/**'
-      - '.github/workflows/push-containers.yml'
-      - 'toolchain/**'
-    branches-ignore:
-      - master
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_dispatch:
 jobs:
-  build-push-containers:
-    name: Build and Push all prebuilt containers
-    permissions:
-      contents: read
-      packages: write
-      actions: write
-    uses: openwrt/actions-shared-workflows/.github/workflows/push-containers.yml@main
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "disabled in a31-mesh fork"

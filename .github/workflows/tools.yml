@@ -1,27 +1,8 @@
-name: Build host tools
-
+name: disabled-in-a31-mesh-fork
 on:
-  pull_request:
-    paths:
-      - 'include/**'
-      - 'tools/**'
-      - '.github/workflows/tools.yml'
-  push:
-    paths:
-      - 'include/**'
-      - 'tools/**'
-      - '.github/workflows/tools.yml'
-    branches-ignore:
-      - master
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
+  workflow_dispatch:
 jobs:
-  build-tools:
-    name: Build host tools for linux and macos based systems
-    uses: openwrt/actions-shared-workflows/.github/workflows/tools.yml@main
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "disabled in a31-mesh fork"

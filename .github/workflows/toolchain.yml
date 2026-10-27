@@ -1,29 +1,8 @@
-name: Build Toolchains
-
+name: disabled-in-a31-mesh-fork
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/toolchain.yml'
-      - 'toolchain/**'
-  push:
-    paths:
-      - '.github/workflows/toolchain.yml'
-      - 'toolchain/**'
-    branches-ignore:
-      - master
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
+  workflow_dispatch:
 jobs:
-  build-toolchains:
-    name: Build Toolchains for each target
-    permissions:
-      contents: read
-      packages: read
-      actions: write
-    uses: openwrt/actions-shared-workflows/.github/workflows/toolchain.yml@main
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "disabled in a31-mesh fork"
