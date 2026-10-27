@@ -26,19 +26,16 @@ jobs:
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          echo "--- mesh feed check ---"
-          ls feeds/ 2>/dev/null | grep -i mesh || echo "NO-MESH-FEED-DIR"
-          ls feeds/mesh/ 2>/dev/null || echo "NO-MESH-PACKAGES"
 
-      - name: Ensure luci-app-mesh available (feed fallback)
+      - name: Add luci-app-mesh into tree (codeload tarball)
         run: |
-          if [ ! -d feeds/mesh/luci-app-mesh ] && [ ! -d package/luci-app-mesh ]; then
-            echo "mesh feed not installed, cloning into tree..."
-            git clone --depth 1 https://github.com/xxosdev/luci-app-mesh.git package/luci-app-mesh
-          else
-            echo "luci-app-mesh already available via feed/tree"
-          fi
-          ls -d package/luci-app-mesh feeds/mesh/luci-app-mesh 2>/dev/null || { echo "luci-app-mesh STILL MISSING"; exit 1; }
+          set -e
+          curl -sSL -o /tmp/mesh.tgz https://codeload.github.com/xxosdev/luci-app-mesh/tar.gz/997e76e5734ba78cc6fda6f4e888e5d09649e9e1
+          ls -lh /tmp/mesh.tgz
+          mkdir -p package/luci-app-mesh
+          tar -xzf /tmp/mesh.tgz --strip-components=1 -C package/luci-app-mesh
+          ls -la package/luci-app-mesh/
+          test -f package/luci-app-mesh/Makefile && echo "Makefile OK" || { echo "NO MAKEFILE"; exit 1; }
 
       - name: Configure (Konka A31 + luci-app-mesh)
         run: |
@@ -54,13 +51,19 @@ jobs:
           CONFIG_PACKAGE_dawn=y
           CONFIG_PACKAGE_umdns=y
           EOF
-          make defconfig
+          make defconfig 2>&1 | tee config.log
           echo "--- config check ---"
-          grep -E 'CONFIG_PACKAGE_luci-app-mesh|CONFIG_PACKAGE_wpad-mesh|CONFIG_PACKAGE_kmod-batman-adv|CONFIG_TARGET_mediatek_filogic_DEVICE_konka' .config || true
+          grep -E '^CONFIG_PACKAGE_luci-app-mesh|^CONFIG_PACKAGE_wpad-mesh|^CONFIG_PACKAGE_kmod-batman-adv|^CONFIG_TARGET_mediatek_filogic_DEVICE_konka' .config || true
 
       - name: Verify luci-app-mesh selected
         run: |
-          grep -q '^CONFIG_PACKAGE_luci-app-mesh=y$' .config && echo "luci-app-mesh SELECTED OK" || { echo "luci-app-mesh NOT SELECTED - abort"; exit 1; }
+          if grep -q '^CONFIG_PACKAGE_luci-app-mesh=y$' .config; then
+            echo "luci-app-mesh SELECTED OK"
+          else
+            echo "luci-app-mesh NOT SELECTED - abort"
+            grep -i -C2 'luci-app-mesh' config.log || true
+            exit 1
+          fi
 
       - name: Build
         run: |
@@ -70,8 +73,8 @@ jobs:
       - name: List artifacts
         run: |
           ls -lh bin/targets/mediatek/filogic/
-          echo '--- mesh/batman in targets ---'
-          find bin/targets -iname '*mesh*' -o -iname '*batman*' | head -50
+          echo '--- mesh in targets ---'
+          find bin/targets -iname '*mesh*' | head -50
           echo '--- mesh in feed packages ---'
           find bin/packages -iname '*mesh*' | head -20
 
@@ -83,4 +86,16 @@ jobs:
             bin/targets/mediatek/filogic/*
             bin/packages/**/*mesh*
             build.log
+            config.log
             .config
+
+      - name: Upload diagnostics (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a31-mesh-diagnostics
+          path: |
+            build.log
+            config.log
+            .config
+          if-no-files-found: ignore
