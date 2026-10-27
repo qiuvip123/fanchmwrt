@@ -26,6 +26,19 @@ jobs:
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+          echo "--- mesh feed check ---"
+          ls feeds/ 2>/dev/null | grep -i mesh || echo "NO-MESH-FEED-DIR"
+          ls feeds/mesh/ 2>/dev/null || echo "NO-MESH-PACKAGES"
+
+      - name: Ensure luci-app-mesh available (feed fallback)
+        run: |
+          if [ ! -d feeds/mesh/luci-app-mesh ] && [ ! -d package/luci-app-mesh ]; then
+            echo "mesh feed not installed, cloning into tree..."
+            git clone --depth 1 https://github.com/xxosdev/luci-app-mesh.git package/luci-app-mesh
+          else
+            echo "luci-app-mesh already available via feed/tree"
+          fi
+          ls -d package/luci-app-mesh feeds/mesh/luci-app-mesh 2>/dev/null || { echo "luci-app-mesh STILL MISSING"; exit 1; }
 
       - name: Configure (Konka A31 + luci-app-mesh)
         run: |
@@ -42,15 +55,25 @@ jobs:
           CONFIG_PACKAGE_umdns=y
           EOF
           make defconfig
+          echo "--- config check ---"
+          grep -E 'CONFIG_PACKAGE_luci-app-mesh|CONFIG_PACKAGE_wpad-mesh|CONFIG_PACKAGE_kmod-batman-adv|CONFIG_TARGET_mediatek_filogic_DEVICE_konka' .config || true
+
+      - name: Verify luci-app-mesh selected
+        run: |
+          grep -q '^CONFIG_PACKAGE_luci-app-mesh=y$' .config && echo "luci-app-mesh SELECTED OK" || { echo "luci-app-mesh NOT SELECTED - abort"; exit 1; }
 
       - name: Build
-        run: make -j$(nproc) V=s
+        run: |
+          set -o pipefail
+          make -j$(nproc) V=s 2>&1 | tee build.log
 
       - name: List artifacts
         run: |
           ls -lh bin/targets/mediatek/filogic/
-          echo '--- mesh/batman packages ---'
-          find bin -iname '*mesh*' -o -iname '*batman*' | head -50
+          echo '--- mesh/batman in targets ---'
+          find bin/targets -iname '*mesh*' -o -iname '*batman*' | head -50
+          echo '--- mesh in feed packages ---'
+          find bin/packages -iname '*mesh*' | head -20
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
@@ -58,3 +81,6 @@ jobs:
           name: fanchmwrt-a31-mesh
           path: |
             bin/targets/mediatek/filogic/*
+            bin/packages/**/*mesh*
+            build.log
+            .config
